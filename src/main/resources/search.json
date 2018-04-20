@@ -1,0 +1,12 @@
+{
+"bool":{
+"must":[{
+"match":{
+"inner_v.long_v":{
+"query" : 1234,
+"type" : "phrase"
+}
+}
+}]
+}
+}
