@@ -26,9 +26,9 @@ import org.elasticsearch.common.geo.ShapesAvailability;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.Index;
 import org.elasticsearch.index.analysis.AnalysisService;
-import org.elasticsearch.index.analysis.AnalyzerProvider;
 import org.elasticsearch.index.analysis.AnalyzerProviderFactory;
-import org.elasticsearch.index.analysis.WhitespaceAnalyzerProvider;
+import org.elasticsearch.index.analysis.AnalyzerScope;
+import org.elasticsearch.index.analysis.PreBuiltAnalyzerProviderFactory;
 import org.elasticsearch.index.fielddata.IndexFieldDataService;
 import org.elasticsearch.index.mapper.DocumentMapper;
 import org.elasticsearch.index.mapper.DocumentMapperParser;
@@ -117,6 +117,7 @@ import org.elasticsearch.index.query.TypeQueryParser;
 import org.elasticsearch.index.query.WildcardQueryParser;
 import org.elasticsearch.index.query.WrapperQueryParser;
 import org.elasticsearch.index.settings.IndexSettingsService;
+import org.elasticsearch.indices.analysis.IndicesAnalysisService;
 import org.elasticsearch.indices.breaker.NoneCircuitBreakerService;
 import org.elasticsearch.indices.mapper.MapperRegistry;
 import org.elasticsearch.indices.query.IndicesQueriesRegistry;
@@ -128,7 +129,6 @@ public class TestContext {
 		Settings settings = Settings.builder()
 				.put("index.version.created", Version.V_1_7_6)
 				.put("index.percolator.map_unmapped_fields_as_string", true)
-//				.put("index.analysis.analyzer.whitespace.ok", "")
 				.build();
 		IndexSettingsService indexSettingsService = new IndexSettingsService(index, settings);
 		
@@ -136,14 +136,16 @@ public class TestContext {
 		MyIndicesModule indicesModule = new MyIndicesModule();
 		try {
 			
+			//设置默认分词器
+			IndicesAnalysisService indicesAnalysisService = new IndicesAnalysisService(settings);
+			Map<String, AnalyzerProviderFactory> analyzerProviderFactoryMap = new HashMap<>(1);
+			analyzerProviderFactoryMap.put("default", new PreBuiltAnalyzerProviderFactory("default", AnalyzerScope.INDICES, new WhitespaceAnalyzer()));
+			AnalysisService analysisService = new AnalysisService(index, indexSettingsService,indicesAnalysisService,analyzerProviderFactoryMap,null,null, null);
+			
 			//解析mapping
 			InputStream is = TestContext.class.getClassLoader().getResourceAsStream("mapping.json");
 			byte[] mappingBytes = new byte[is.available()];
 			is.read(mappingBytes);
-			
-			Map<String, AnalyzerProviderFactory> analyzerFactoryFactories = new HashMap<>(1);
-			analyzerFactoryFactories.put("default", new myWhite(index, indexSettingsService));
-			AnalysisService analysisService = new AnalysisService(index, indexSettingsService,null,analyzerFactoryFactories,null,null, null);
 			
 			MapperService mapperService = new MapperService(index,
 		            settings,
@@ -191,7 +193,7 @@ public class TestContext {
 			IndexQueryParserService indexQueryParserService = new IndexQueryParserService(index, indexSettingsService, indicesQueriesRegistry, null, analysisService, mapperService, null, indexFieldDataService, null, null);
 			DirectoryReader dreader = DirectoryReader.open(rDir);
 			IndexSearcher searcher = new IndexSearcher(dreader);
-			InputStream is2 = TestContext.class.getClassLoader().getResourceAsStream("search.json");
+			InputStream is2 = TestContext.class.getClassLoader().getResourceAsStream("search-type.json");
 			byte[] searchBytes = new byte[is2.available()];
 			is2.read(searchBytes);
 			ParsedQuery parsedQuery = indexQueryParserService.parse(new BytesArray(searchBytes));
@@ -201,22 +203,6 @@ public class TestContext {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-	}
-	
-	
-	static class myWhite implements AnalyzerProviderFactory{
-		private Index index;
-		private IndexSettingsService indexSettingsService;
-		
-		myWhite(Index index, IndexSettingsService indexSettingsService){
-			this.index = index;
-			this.indexSettingsService = indexSettingsService;
-		}
-		
-		@Override
-		public AnalyzerProvider create(String name, Settings settings) {
-			return new WhitespaceAnalyzerProvider(index, indexSettingsService, name, settings);
 		}
 	}
 	

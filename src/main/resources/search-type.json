@@ -1,11 +1,9 @@
 {
 "bool":{
 "must":[{
-"match":{
-"long_v":{
-"query" : 123,
-"type" : "phrase"
-}
+"regexp":{
+"string_v2": ".*中国人"
 }
 }]
+}
 }
